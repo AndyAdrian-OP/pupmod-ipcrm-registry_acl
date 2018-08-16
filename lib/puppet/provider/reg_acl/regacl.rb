@@ -321,12 +321,10 @@ Puppet::Type.type(:reg_acl).provide(:regacl, parent: Puppet::Provider::Regpowers
 		  If ('#{p['IdentityReference']}' -eq 'S-1-15-2-1'){
 			$acesToRemove = $objACL.Access | ?{ $_.IsInherited -eq $false -and $_.IdentityReference -eq 'ALL APPLICATION PACKAGES' }
 		  }
-		  ElseIf ('#{p['IdentityReference']}' -eq 'S-1-5-18'){
-			exit
-		  }
 		  Else{
 			$acesToRemove = $objACL.Access | ?{ $_.IsInherited -eq $false -and $_.IdentityReference -eq '#{get_account_name(p['IdentityReference'])}' }
 		  }
+		  write-host $acesToRemove
           if ($acesToRemove) { $objACL.RemoveAccessRule($acesToRemove) }
         ps1
       end
