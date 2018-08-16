@@ -315,25 +315,36 @@ Puppet::Type.type(:reg_acl).provide(:regacl, parent: Puppet::Provider::Regpowers
     end
 
     @property_flush[:permissions].each do |p|
+	  debug("Flushing new permission")
       # If we adding, we need to clear out any existing ace that doesn't match
       if @resource[:purge].downcase.to_sym == :false
         cmd << <<-ps1.gsub(/^\s+/,"")
-          $acesToRemove = $objACL.Access | ?{ $_.IsInherited -eq $false -and $_.IdentityReference -eq '#{get_account_name(p['IdentityReference'])}' }
+		  If ('#{p['IdentityReference']}' -eq 'S-1-15-2-1'){
+			$acesToRemove = $objACL.Access | ?{ $_.IsInherited -eq $false -and $_.IdentityReference -eq 'ALL APPLICATION PACKAGES' }
+		  } Else{
+			$acesToRemove = $objACL.Access | ?{ $_.IsInherited -eq $false -and $_.IdentityReference -eq '#{get_account_name(p['IdentityReference'])}' }
+		  }
+
           if ($acesToRemove) { $objACL.RemoveAccessRule($acesToRemove) }
         ps1
       end
 
       if p['IsInherited'] == false
         cmd << <<-ps1.gsub(/^\s+/, "")
-          $secPrincipal    = '#{get_account_name(p['IdentityReference'])}'
+		  If ('#{p['IdentityReference']}' -eq 'S-1-15-2-1'){
+			$objUser 	 = 'ALL APPLICATION PACKAGES'
+		  } Else{
+			$secPrincipal    = '#{get_account_name(p['IdentityReference'])}'
+			$objUser = New-Object System.Security.Principal.NTAccount($secPrincipal)
+		  }
+
           $InheritanceFlag = [System.Security.AccessControl.InheritanceFlags]'#{p['InheritanceFlags']}'
           $PropagationFlag = [System.Security.AccessControl.PropagationFlags]'#{p['PropagationFlags']}'
           $objAccess       = [System.Security.AccessControl.RegistryRights]'#{p['RegistryRights']}'
           $objType         = [System.Security.AccessControl.AccessControlType]'#{p['AccessControlType']}'
 
-          $objUser = New-Object System.Security.Principal.NTAccount($secPrincipal)
           $objACE = New-Object System.Security.AccessControl.RegistryAccessRule($objUser, $objAccess, $InheritanceFlag, $PropagationFlag, $objType)
-          $objACL.#{ace_method}($objACE)
+		 $objACL.#{ace_method}($objACE)
         ps1
       end
     end
@@ -389,6 +400,7 @@ Puppet::Type.type(:reg_acl).provide(:regacl, parent: Puppet::Provider::Regpowers
       cmd.prepend(cmd_preface)
       cmd << <<-ps1.gsub(/^\s+/, "")
         } catch {
+
           write-host "Failure: $($_.Exception.Message)"
           exit 1
         }
