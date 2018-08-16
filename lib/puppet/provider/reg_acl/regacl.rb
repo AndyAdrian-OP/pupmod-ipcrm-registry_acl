@@ -315,16 +315,18 @@ Puppet::Type.type(:reg_acl).provide(:regacl, parent: Puppet::Provider::Regpowers
     end
 
     @property_flush[:permissions].each do |p|
-	  debug("Flushing new permission")
       # If we adding, we need to clear out any existing ace that doesn't match
       if @resource[:purge].downcase.to_sym == :false
         cmd << <<-ps1.gsub(/^\s+/,"")
 		  If ('#{p['IdentityReference']}' -eq 'S-1-15-2-1'){
 			$acesToRemove = $objACL.Access | ?{ $_.IsInherited -eq $false -and $_.IdentityReference -eq 'ALL APPLICATION PACKAGES' }
-		  } Else{
+		  }
+		  ElseIf ('#{p['IdentityReference']}' -eq 'S-1-5-18'){
+			exit
+		  }
+		  Else{
 			$acesToRemove = $objACL.Access | ?{ $_.IsInherited -eq $false -and $_.IdentityReference -eq '#{get_account_name(p['IdentityReference'])}' }
 		  }
-
           if ($acesToRemove) { $objACL.RemoveAccessRule($acesToRemove) }
         ps1
       end
